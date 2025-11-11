@@ -1,66 +1,61 @@
-name: Build APK
+name: build-android
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build-android:
-    runs-on: ubuntu-24.04
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       # 1. Clonar el repositorio
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. Instalar dependencias del sistema
+      # 2. Configurar Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      # 3. Actualizar apt y dependencias necesarias para Buildozer
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            python3 python3-pip python3-venv \
-            openjdk-17-jdk unzip zip \
-            build-essential git \
-            libffi-dev libssl-dev \
-            liblzma-dev zlib1g-dev \
-            libncurses5 libncurses5-dev \
-            libgdbm-dev libsqlite3-dev \
-            curl wget
+          sudo apt install -y python3-pip python3-venv \
+              build-essential git unzip openjdk-17-jdk \
+              zlib1g-dev libncurses5-dev libstdc++6 \
+              libffi-dev wget curl libssl-dev \
+              python3-dev python3-setuptools \
+              python3-wheel libsqlite3-dev
 
-      # 3. Configurar Python
-      - name: Setup Python
+      # 4. Instalar Cython (necesario para Pyjnius)
+      - name: Install Python build dependencies
         run: |
-          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install --upgrade pip setuptools wheel Cython
 
-      # 4. Instalar Buildozer y Cython
-      - name: Install Buildozer and Cython
+      # 5. Instalar Buildozer
+      - name: Install Buildozer
+        run: python3 -m pip install --upgrade buildozer
+
+      # 6. Instalar los requisitos de tu app
+      - name: Install app Python requirements
         run: |
-          python3 -m pip install --upgrade buildozer cython
+          python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer jnius
 
-      # 5. Instalar dependencias de Python de la app
-      - name: Install additional Python requirements
-        run: |
-          # Primero las básicas
-          python3 -m pip install kivy==2.3.0 gspread google-auth plyer
-          # Luego jnius
-          python3 -m pip install jnius
-          # Por último KivyMD
-          python3 -m pip install kivymd
-
-      # 6. Verificar que Buildozer vea el archivo .spec
-      - name: List project files
-        run: ls -la
-
-      # 7. Compilar el APK
+      # 7. Compilar APK
       - name: Build APK
         run: |
           buildozer android debug
 
       # 8. Subir APK como artefacto
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: FichajeApp-debug.apk
           path: bin/*.apk

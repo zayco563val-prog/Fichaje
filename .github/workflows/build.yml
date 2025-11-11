@@ -14,44 +14,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            python3-virtualenv \
-            python3-dev \
-            build-essential \
-            git \
-            zip \
-            unzip \
-            openjdk-17-jdk \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libffi-dev \
-            libssl-dev \
-            libsqlite3-dev \
-            curl
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Create Python virtualenv
-        run: |
-          python3 -m venv venv
-          echo "VENVPATH=$(pwd)/venv/bin" >> $GITHUB_ENV
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 33
+          build-tools: 33.0.2
 
-      - name: Activate virtualenv and upgrade pip
+      - name: Build APK
         run: |
-          source $VENVPATH/activate
-          pip install --upgrade pip setuptools wheel Cython
+          cd Fichaje
+          ./gradlew assembleDebug
 
-      - name: Install Python requirements
-        run: |
-          source $VENVPATH/activate
-          pip install kivy==2.3.0 kivymd gspread google-auth plyer pyjnius buildozer
-
-      - name: Build Android APK
-        run: |
-          source $VENVPATH/activate
-          buildozer android debug
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-debug-apk
+          path: Fichaje/app/build/outputs/apk/debug/app-debug.apk

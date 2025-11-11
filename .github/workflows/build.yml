@@ -16,12 +16,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y python3-pip python3-setuptools openjdk-11-jdk zip unzip git wget
-
-        # Instalar distutils para Python 3.12
-        wget https://bootstrap.pypa.io/get-pip.py
-        python3 get-pip.py
-        python3 -m pip install setuptools wheel
+        sudo apt install -y python3-pip python3-setuptools python3.12-distutils python3.12-venv openjdk-11-jdk zip unzip git
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -34,9 +29,11 @@ jobs:
         pip install cython==0.29.36
         pip install buildozer
 
+    - name: Change to project directory
+      run: cd PyCharmMiscProject
+
     - name: Build APK
       run: |
-        cd PyCharmMiscProject
         buildozer android debug
 
     - name: Upload APK

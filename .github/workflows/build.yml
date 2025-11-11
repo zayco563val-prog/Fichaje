@@ -2,40 +2,38 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y python3-pip python3.12-venv openjdk-11-jdk zip unzip git curl
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip openjdk-17-jdk git unzip wget
+          # Instalar setuptools (reemplaza distutils)
+          python3 -m pip install --upgrade pip setuptools wheel
+          # Instalar Cython (Buildozer lo necesita)
+          python3 -m pip install cython
 
-    - name: Fix distutils for Python 3.12
-      run: |
-        python -m ensurepip --upgrade
-        python -m pip install --upgrade pip setuptools wheel cython==0.29.36 buildozer
+      - name: Install Buildozer
+        run: python3 -m pip install --upgrade buildozer
 
-    - name: Change to project directory
-      run: cd PyCharmMiscProject
+      - name: Install additional Python requirements
+        run: python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer jnius
 
-    - name: Build APK
-      run: buildozer android debug
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: FichajeApp-apk
-        path: PyCharmMiscProject/bin/*.apk
+      - name: Build APK
+        working-directory: PyCharmMiscProject
+        run: buildozer android debug

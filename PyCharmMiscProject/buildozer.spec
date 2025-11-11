@@ -53,7 +53,6 @@ p4a.local_recipes =
 # --- Configuración de entorno ---
 log_level = 2
 fullscreen = 0
-title = FichajeApp
 
 # --- Para compilar correctamente en Android ---
 # Asegúrate de tener tu archivo de credenciales y JSON dentro del directorio principal
@@ -70,6 +69,3 @@ logcat_filter = *:S python:D
 requirements.source.google-auth = https://github.com/googleapis/google-auth-library-python.git
 
 [buildozer]
-log_level = 2
-warn_on_root = 1
-verbose = 1

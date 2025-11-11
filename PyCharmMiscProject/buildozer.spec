@@ -39,8 +39,8 @@ android.ndk = 25b
 android.archs = arm64-v8a,armeabi-v7a
 android.entrypoint = org.kivy.android.PythonActivity
 
-# Nombre del archivo de salida APK
-package.version = 1.0
+# Versión de la app
+version = 1.0
 package.version.code = 1
 
 # Carpetas de datos adicionales (donde se guardarán registros)

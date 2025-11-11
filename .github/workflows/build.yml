@@ -4,55 +4,54 @@ on:
   push:
     branches:
       - main
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-    # 1️⃣ Clonar el repositorio
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    # 2️⃣ Instalar dependencias del sistema
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y python3-pip python3-dev git build-essential \
-                            autoconf libtool pkg-config zlib1g-dev \
-                            libssl-dev libffi-dev openjdk-11-jdk \
-                            unzip wget curl
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            python3-virtualenv \
+            python3-dev \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libffi-dev \
+            libssl-dev \
+            libsqlite3-dev \
+            curl
 
-    # 3️⃣ Actualizar pip y setuptools
-    - name: Upgrade pip and setuptools
-      run: |
-        sudo python3 -m pip install --upgrade pip setuptools wheel
+      - name: Create Python virtualenv
+        run: |
+          python3 -m venv venv
+          echo "VENVPATH=$(pwd)/venv/bin" >> $GITHUB_ENV
 
-    # 4️⃣ Instalar Cython globalmente (para Pyjnius)
-    - name: Install Cython globally
-      run: |
-        sudo python3 -m pip install Cython
+      - name: Activate virtualenv and upgrade pip
+        run: |
+          source $VENVPATH/activate
+          pip install --upgrade pip setuptools wheel Cython
 
-    # 5️⃣ Instalar Buildozer
-    - name: Install Buildozer
-      run: |
-        sudo python3 -m pip install buildozer
+      - name: Install Python requirements
+        run: |
+          source $VENVPATH/activate
+          pip install kivy==2.3.0 kivymd gspread google-auth plyer pyjnius buildozer
 
-    # 6️⃣ Instalar dependencias Python (excepto jnius)
-    - name: Install Python requirements (without jnius)
-      run: |
-        sudo python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer
-
-    # 7️⃣ Instalar jnius (ahora Cython ya está disponible)
-    - name: Install Pyjnius
-      run: |
-        sudo python3 -m pip install jnius
-
-    # 8️⃣ Verificar Buildozer
-    - name: Check Buildozer version
-      run: buildozer --version
-
-    # 9️⃣ Build APK
-    - name: Build Android APK
-      run: buildozer android debug
+      - name: Build Android APK
+        run: |
+          source $VENVPATH/activate
+          buildozer android debug

@@ -3,7 +3,8 @@ package com.miempresa.myapp;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
+import android.os.Environment;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
@@ -24,29 +25,34 @@ import com.google.android.gms.location.LocationServices;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.FileOutputStream;
-import java.io.FileInputStream;
-import java.util.ArrayList;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private Spinner spinnerUsuarios;
     private TextView estadoText;
     private Button btnIniciar, btnPausar, btnReanudar, btnFinalizar;
+
     private boolean tracking = false;
     private boolean pausado = false;
 
-    private ArrayList<JSONObject> registros = new ArrayList<>();
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
 
+    private File rutaDatos;
+
     private static final int PERMISSION_REQUEST_CODE = 1000;
+    private static final int INTERVALO_UBICACION_MS = 60000; // 1 minuto
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main); // XML que hay que crear
+        setContentView(R.layout.activity_main); // tu layout XML
 
         spinnerUsuarios = findViewById(R.id.spinnerUsuarios);
         estadoText = findViewById(R.id.estadoText);
@@ -55,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         btnReanudar = findViewById(R.id.btnReanudar);
         btnFinalizar = findViewById(R.id.btnFinalizar);
 
-        // Lista de usuarios (puedes cargarla luego desde Google Sheets)
+        // Lista de usuarios
         String[] usuarios = {"Usuario1", "Usuario2"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, usuarios);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -63,6 +69,10 @@ public class MainActivity extends AppCompatActivity {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        // Ruta del archivo JSON en almacenamiento externo
+        rutaDatos = new File(Environment.getExternalStorageDirectory(), "fichajes_service.json");
+
+        // Botones
         btnIniciar.setOnClickListener(v -> iniciarFichaje());
         btnPausar.setOnClickListener(v -> pausarFichaje());
         btnReanudar.setOnClickListener(v -> reanudarFichaje());
@@ -72,13 +82,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void solicitarPermisos() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE},
                     PERMISSION_REQUEST_CODE);
         }
     }
@@ -113,13 +124,13 @@ public class MainActivity extends AppCompatActivity {
         tracking = false;
         estadoText.setText("Fichaje finalizado");
         stopLocationUpdates();
-        guardarRegistrosLocal();
         Toast.makeText(this, "Fichaje finalizado y guardado localmente", Toast.LENGTH_SHORT).show();
     }
 
     private void startLocationUpdates() {
         LocationRequest request = LocationRequest.create();
-        request.setInterval(60000); // cada minuto
+        request.setInterval(INTERVALO_UBICACION_MS);
+        request.setFastestInterval(INTERVALO_UBICACION_MS);
         request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
         locationCallback = new LocationCallback() {
@@ -128,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
                 if (tracking && !pausado) {
                     double lat = locationResult.getLastLocation().getLatitude();
                     double lon = locationResult.getLastLocation().getLongitude();
-                    guardarRegistro(lat, lon);
+                    registrarUbicacion(lat, lon);
                 }
             }
         };
@@ -145,39 +156,51 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void guardarRegistro(double lat, double lon) {
+    private void registrarUbicacion(double lat, double lon) {
         try {
+            String fecha = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+            String hora = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+
             JSONObject registro = new JSONObject();
-            registro.put("Fecha", new Date().toString());
-            registro.put("Nombre", spinnerUsuarios.getSelectedItem().toString());
+            registro.put("Fecha", fecha);
+            registro.put("Hora", hora);
+            registro.put("Usuario", spinnerUsuarios.getSelectedItem().toString());
             registro.put("Latitud", lat);
             registro.put("Longitud", lon);
-            registros.add(registro);
-            System.out.println("Registro guardado: " + registro.toString());
+
+            JSONArray data = new JSONArray();
+            if (rutaDatos.exists()) {
+                try (FileReader reader = new FileReader(rutaDatos)) {
+                    char[] buffer = new char[(int) rutaDatos.length()];
+                    reader.read(buffer);
+                    String content = new String(buffer);
+                    if (!content.isEmpty()) {
+                        data = new JSONArray(content);
+                    }
+                }
+            }
+
+            data.put(registro);
+
+            try (FileWriter writer = new FileWriter(rutaDatos)) {
+                writer.write(data.toString(2));
+            }
+
+            Log.d("GPSService", "Ubicación registrada: " + registro.toString());
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void guardarRegistrosLocal() {
-        try {
-            JSONArray array = new JSONArray(registros);
-            FileOutputStream fos = openFileOutput("registros_offline.json", MODE_PRIVATE);
-            fos.write(array.toString().getBytes());
-            fos.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Manejo de permisos
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
             for (int result : grantResults) {
                 if (result != PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Permiso requerido para GPS", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Permiso requerido para GPS/Almacenamiento", Toast.LENGTH_SHORT).show();
                     return;
                 }
             }

@@ -7,33 +7,60 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-apk:
-    runs-on: ubuntu-latest
+  build-android:
+    runs-on: ubuntu-24.04
 
     steps:
+      # 1. Clonar el repositorio
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-
+      # 2. Instalar dependencias del sistema
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip openjdk-17-jdk git unzip wget
-          # Instalar setuptools (reemplaza distutils)
+          sudo apt install -y \
+            python3 python3-pip python3-venv \
+            openjdk-17-jdk unzip zip \
+            build-essential git \
+            libffi-dev libssl-dev \
+            liblzma-dev zlib1g-dev \
+            libncurses5 libncurses5-dev \
+            libgdbm-dev libsqlite3-dev \
+            curl wget
+
+      # 3. Configurar Python
+      - name: Setup Python
+        run: |
           python3 -m pip install --upgrade pip setuptools wheel
-          # Instalar Cython (Buildozer lo necesita)
-          python3 -m pip install cython
 
-      - name: Install Buildozer
-        run: python3 -m pip install --upgrade buildozer
+      # 4. Instalar Buildozer y Cython
+      - name: Install Buildozer and Cython
+        run: |
+          python3 -m pip install --upgrade buildozer cython
 
+      # 5. Instalar dependencias de Python de la app
       - name: Install additional Python requirements
-        run: python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer jnius
+        run: |
+          # Primero las básicas
+          python3 -m pip install kivy==2.3.0 gspread google-auth plyer
+          # Luego jnius
+          python3 -m pip install jnius
+          # Por último KivyMD
+          python3 -m pip install kivymd
 
+      # 6. Verificar que Buildozer vea el archivo .spec
+      - name: List project files
+        run: ls -la
+
+      # 7. Compilar el APK
       - name: Build APK
-        working-directory: PyCharmMiscProject
-        run: buildozer android debug
+        run: |
+          buildozer android debug
+
+      # 8. Subir APK como artefacto
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: FichajeApp-debug.apk
+          path: bin/*.apk

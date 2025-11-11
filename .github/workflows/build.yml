@@ -24,27 +24,35 @@ jobs:
                             libssl-dev libffi-dev openjdk-11-jdk \
                             unzip wget curl
 
-    # 3️⃣ Instalar Buildozer y Cython
-    - name: Install Buildozer and Cython
+    # 3️⃣ Actualizar pip y setuptools
+    - name: Upgrade pip and setuptools
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --upgrade buildozer Cython
+        sudo python3 -m pip install --upgrade pip setuptools wheel
 
-    # 4️⃣ Instalar Python requirements (sin jnius)
-    - name: Install app Python requirements (without jnius)
+    # 4️⃣ Instalar Cython globalmente (para Pyjnius)
+    - name: Install Cython globally
       run: |
-        python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer
+        sudo python3 -m pip install Cython
 
-    # 5️⃣ Instalar jnius
+    # 5️⃣ Instalar Buildozer
+    - name: Install Buildozer
+      run: |
+        sudo python3 -m pip install buildozer
+
+    # 6️⃣ Instalar dependencias Python (excepto jnius)
+    - name: Install Python requirements (without jnius)
+      run: |
+        sudo python3 -m pip install kivy==2.3.0 kivymd gspread google-auth plyer
+
+    # 7️⃣ Instalar jnius (ahora Cython ya está disponible)
     - name: Install Pyjnius
       run: |
-        python3 -m pip install jnius
+        sudo python3 -m pip install jnius
 
-    # 6️⃣ Verificar Buildozer
+    # 8️⃣ Verificar Buildozer
     - name: Check Buildozer version
       run: buildozer --version
 
-    # 7️⃣ Build APK
+    # 9️⃣ Build APK
     - name: Build Android APK
-      run: |
-        buildozer android debug
+      run: buildozer android debug
